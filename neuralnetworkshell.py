@@ -18,47 +18,15 @@ from torch.utils.data import DataLoader, TensorDataset
 import math
 import numpy as np
 
+
 # ==== LOAD DATA ====
-Flag_normalize = True #Normalize data for better performance
-Flag_noise = True
-
-# Define test Data
-N = 70
-X = np.linspace(-5., 5., num=N,dtype=np.float32)
-X1 = X
-if (Flag_normalize):
-    X = X/ np.max(abs(X))
 
 
-y_values = []
-for i in range(N):
-    result = math.sin(9.*X[i]) # increasing the factor (freq) makes training harder
-    y_values.append(result)
-
-
-y1 = np.array(y_values, dtype=np.float32)
-if (Flag_normalize):
-        y1 = y1 / np.max(abs(y1))
-
-
-X = X.reshape(-1, 1)
-y1 = y1.reshape(-1, 1)
-
-if(Flag_noise):# Add noise
- sigma = 0.025 * np.max(abs(y1))
- mu = 0.
- noise = sigma * np.random.randn(N,1) + mu
- y = y1 + noise
- y = y.astype('float32')
-
-
-#print (x_train)
-#print (y_train)
 
 
 
 # ==== PARAMETERS ====
-hidden_dim = 32     # number of hidden nodes (this can be changed as needed)
+hidden_dim = 350     # number of hidden nodes (this can be changed as needed)
 input_dim = X.shape[1]
 output_dim = y.shape[1]
 batch_size = 64
@@ -87,59 +55,75 @@ class PINN(nn.Module):
         # Can change the number of layers and the dimension of each as needed.
         # Also have dropout ready to add if it is too much data for our computers
         super().__init__()
-        self.linear = nn.Linear(in_dim, hid_dim)
-        self.relu = nn.ReLU()
+        self.linear1 = nn.Linear(in_dim, hid_dim)
         self.linear2 = nn.Linear(hid_dim, hid_dim)
-        self.linear3 = nn.Linear(hid_dim, out_dim)
-        self.drop = nn.Dropout(p=0.2)
+        self.linear3 = nn.Linear(hid_dim, hid_dim)
+        self.linear4 = nn.Linear(hid_dim, hid_dim)
+        self.linear5 = nn.Linear(hid_dim, hid_dim)
+        self.linearout = nn.Linear(hid_dim, out_dim)
+        self.relu = nn.ReLU()
 
     def forward(self, x):
-        x = self.linear(x)
-        x = self.relu(x)
-        x = self.linear2(x)
-        x = self.relu(x)
-        x = self.linear3(x)
+        x = self.relu(self.linear1(x))
+        x = self.relu(self.linear2(x))
+        x = self.relu(self.linear3(x))
+        x = self.relu(self.linear4(x))
+        x = self.relu(self.linear5(x))
+        x = self.relu(self.linearout(x))
 
         return x
 
 # ==== TRAINING ====
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = PINN(X.shape[1], hidden_dim, y.shape[1]).to(device) # Output dim should be y.shape[1]
-criterion = nn.MSELoss()
+model = PINN(X.shape[1], hidden_dim, output_dim).to(device) # Output dim should be y.shape[1]
+criterion_data = nn.MSELoss()
 optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-
+beta = 0.01
 
 for epoch in range(epochs):
     model.train()
     total_loss = 0
     for batch_X, batch_y in train_loader:
         batch_X, batch_y = batch_X.to(device), batch_y.to(device)
+
+        # Ensure input requires gradient for derivative calculation
+        batch_X.requires_grad_(True) # Re-added this critical line
+
         optimizer.zero_grad()
         outputs = model(batch_X)
-        loss = criterion(outputs, batch_y)
+        # Standard data loss for S and I
+        loss_data = criterion_data(outputs, batch_y)
+
+        # Save predicted S and I populations
+        S_pred = outputs[:,0:1]
+        I_pred = outputs[:,1:2]
+
+        # Calculate first derivatives with respect to time (batch_X)
+        dS_dt_pred = grad(S_pred, batch_X, grad_outputs=torch.ones_like(S_pred), create_graph=True, retain_graph=True)[0]
+        dI_dt_pred = grad(I_pred, batch_X, grad_outputs=torch.ones_like(I_pred), create_graph=True, retain_graph=True)[0]
+
+        # Calculate the physics loss components
+        # Using dS/dt = -beta*S*I/(S+I) and dI/dt = beta*S*I/(S+I)
+        dS_dt = -beta * S_pred * I_pred / (S_pred + I_pred)
+        dI_dt = beta * S_pred * I_pred / (S_pred + I_pred)
+
+        # Physics loss for S and I components
+        loss_physics_S = torch.mean((dS_dt_pred - dS_dt) ** 2)
+        loss_physics_I = torch.mean((dI_dt_pred - dI_dt) ** 2)
+
+        # Combine physics losses for both components
+        loss_physics = loss_physics_S + loss_physics_I
+
+        # Combine the total losses
+        lambda_physics = 0.01
+        loss = loss_data + lambda_physics*loss_physics
+
         loss.backward()
         optimizer.step()
         total_loss += loss.item() * batch_X.size(0)
+
     avg_loss = total_loss / len(train_loader.dataset)
     print(f"Epoch [{epoch+1}/{epochs}], Loss: {avg_loss:.6f}")
-
-import matplotlib.pyplot as plt
-if(1): #plot the results
-
- plt.clf()
-
- # Get predictions
- predicted = model(torch.from_numpy(X_train.cpu().numpy()).requires_grad_()).data.numpy()
-
- # Plot true data
- plt.plot(X_train.cpu().numpy(), y_train.cpu().numpy(), 'go', label='True data', alpha=0.5)
-
- # Plot predictions
- plt.plot(X_train.cpu().numpy(), predicted, 'o', label='Predictions', alpha=0.5)
-
- # Legend and plot
- plt.legend(loc='best')
- plt.show()
 
 # ==== EVALUATE ====
 model.eval()

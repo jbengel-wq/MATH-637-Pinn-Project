@@ -17,6 +17,9 @@ from sklearn.preprocessing import MinMaxScaler
 from torch.utils.data import DataLoader, TensorDataset
 import math
 import numpy as np
+from torch.autograd import grad
+import pandas as pd
+from sklearn.preprocessing import StandardScaler
 
 
 # ==== LOAD DATA ====
@@ -44,6 +47,9 @@ y = np.hstack((y_s_true.reshape(-1, 1), y_i_true.reshape(-1, 1)))
 
 X = X.reshape(-1, 1) # X remains 1D for time input
 
+# Below is scaling that may improve the model
+#scaler = StandardScaler()
+#X = scaler.fit_transform(X)
 
 
 
@@ -71,12 +77,14 @@ y_test = torch.tensor(y_test, dtype=torch.float32)
 train_loader = DataLoader(TensorDataset(X_train, y_train), batch_size=batch_size, shuffle=True)
 test_loader = DataLoader(TensorDataset(X_test, y_test), batch_size=batch_size, shuffle=False)
 
+
+
 # ==== DEFINE MODEL ====
 class PINN(nn.Module):
     def __init__(self, in_dim, hid_dim, out_dim):
-        # Currently three layers with equal size.
+        # Currently 6 layers with equal size.
         # Can change the number of layers and the dimension of each as needed.
-        # Also have dropout ready to add if it is too much data for our computers
+        # Currently using relu but tanh may be a better activation function.
         super().__init__()
         self.linear1 = nn.Linear(in_dim, hid_dim)
         self.linear2 = nn.Linear(hid_dim, hid_dim)
@@ -139,8 +147,10 @@ for epoch in range(epochs):
 
         # Combine the total losses
         lambda_physics = 1
-        loss = loss_data + lambda_physics*loss_physics_I # Only using dI/dt since S has too many changes occuring unrelated to the model like birth.
-
+        loss = loss_data + lambda_physics*loss_physics_I 
+        # Only using dI/dt since S has too many changes occuring unrelated to the model like birth.
+        # Currently only using dS/dt for tracking purposes so it can be removed.
+        
         loss.backward()
         optimizer.step()
         total_loss += loss.item() * batch_X.size(0)

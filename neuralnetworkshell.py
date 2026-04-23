@@ -21,6 +21,29 @@ import numpy as np
 
 # ==== LOAD DATA ====
 
+# Read the csv file
+data = pd.read_csv('SI_raw_cleaned.csv')
+
+# Convert to NumPy array
+array = data.to_numpy()
+
+
+# Define test Data
+X = array[:,0].astype(np.float32)
+S = array[:,2].astype(np.float32)
+I = array[:,5].astype(np.float32)
+
+
+y_s_true = np.array(S, dtype=np.float32)
+y_i_true = np.array(I, dtype=np.float32)
+
+
+# Combine into a 2-column array for S and I
+y = np.hstack((y_s_true.reshape(-1, 1), y_i_true.reshape(-1, 1)))
+
+
+X = X.reshape(-1, 1) # X remains 1D for time input
+
 
 
 
@@ -115,7 +138,7 @@ for epoch in range(epochs):
         loss_physics = loss_physics_S + loss_physics_I
 
         # Combine the total losses
-        lambda_physics = 0.01
+        lambda_physics = 1
         loss = loss_data + lambda_physics*loss_physics
 
         loss.backward()

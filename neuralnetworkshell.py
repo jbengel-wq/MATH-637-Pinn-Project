@@ -139,7 +139,7 @@ for epoch in range(epochs):
 
         # Combine the total losses
         lambda_physics = 1
-        loss = loss_data + lambda_physics*loss_physics
+        loss = loss_data + lambda_physics*loss_physics_I # Only using dI/dt since S has too many changes occuring unrelated to the model like birth.
 
         loss.backward()
         optimizer.step()

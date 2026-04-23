@@ -134,9 +134,9 @@ for epoch in range(epochs):
         dI_dt_pred = grad(I_pred, batch_X, grad_outputs=torch.ones_like(I_pred), create_graph=True, retain_graph=True)[0]
 
         # Calculate the physics loss components
-        # Using dS/dt = -beta*S*I/(S+I) and dI/dt = beta*S*I/(S+I)
-        dS_dt = -beta * S_pred * I_pred / (S_pred + I_pred)
-        dI_dt = beta * S_pred * I_pred / (S_pred + I_pred)
+        # Using dS/dt = -beta*S*I/(S+I) and dI/dt = beta*S*I
+        dS_dt = -beta * S_pred * I_pred
+        dI_dt = beta * S_pred * I_pred
 
         # Physics loss for S and I components
         loss_physics_S = torch.mean((dS_dt_pred - dS_dt) ** 2)

@@ -100,7 +100,7 @@ class PINN(nn.Module):
         x = self.relu(self.linear3(x))
         x = self.relu(self.linear4(x))
         x = self.relu(self.linear5(x))
-        x = self.relu(self.linearout(x))
+        x = self.linearout(x)
 
         return x
 

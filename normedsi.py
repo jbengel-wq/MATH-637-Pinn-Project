@@ -108,8 +108,11 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = PINN(X.shape[1], hidden_dim, output_dim).to(device) # Output dim should be y.shape[1]
 criterion_data = nn.MSELoss()
 optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-beta = 0.15
 
+
+# Currently setup to allow training with a list of beta and lambda values.
+# Can be removed or set to the desired value
+# Note lambda = 0 is a standard Neural Network
 for beta in [0.1, 0.11, 0.12, 0.13, 0.14, 0.15, 0.16, 0.17]:
   for lambda_physics in [0.0, 0.000001, 0.00001, 0.0001, 0.001, 0.4]:
       for epoch in range(epochs):
@@ -147,8 +150,6 @@ for beta in [0.1, 0.11, 0.12, 0.13, 0.14, 0.15, 0.16, 0.17]:
             # Combine physics losses for both components
             loss_physics = loss_physics_S + loss_physics_I
 
-            # Combine the total losses
-            lambda_physics = 0.01
             # Combine the total losses
             loss = loss_data + lambda_physics*loss_physics_I
 

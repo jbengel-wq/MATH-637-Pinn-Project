@@ -82,9 +82,9 @@ test_loader = DataLoader(TensorDataset(X_test, y_test), batch_size=batch_size, s
 # ==== DEFINE MODEL ====
 class PINN(nn.Module):
     def __init__(self, in_dim, hid_dim, out_dim):
-        # Currently 6 layers with equal size.
+        # Currently three layers with equal size.
         # Can change the number of layers and the dimension of each as needed.
-        # Currently using relu but tanh may be a better activation function.
+        # Also have dropout ready to add if it is too much data for our computers
         super().__init__()
         self.linear1 = nn.Linear(in_dim, hid_dim)
         self.linear2 = nn.Linear(hid_dim, hid_dim)
@@ -93,13 +93,14 @@ class PINN(nn.Module):
         self.linear5 = nn.Linear(hid_dim, hid_dim)
         self.linearout = nn.Linear(hid_dim, out_dim)
         self.relu = nn.ReLU()
+        self.tanh = nn.Tanh()
 
     def forward(self, x):
-        x = self.relu(self.linear1(x))
-        x = self.relu(self.linear2(x))
-        x = self.relu(self.linear3(x))
-        x = self.relu(self.linear4(x))
-        x = self.relu(self.linear5(x))
+        x = self.tanh(self.linear1(x))
+        x = self.tanh(self.linear2(x))
+        x = self.tanh(self.linear3(x))
+        x = self.tanh(self.linear4(x))
+        x = self.tanh(self.linear5(x))
         x = self.linearout(x)
 
         return x

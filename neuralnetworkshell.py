@@ -25,7 +25,7 @@ from sklearn.preprocessing import StandardScaler
 # ==== LOAD DATA ====
 
 # Read the csv file
-data = pd.read_csv('SI_raw_cleaned.csv')
+data = pd.read_csv('data/SI_raw_cleaned.csv')
 
 # Convert to NumPy array
 array = data.to_numpy()
@@ -112,6 +112,8 @@ criterion_data = nn.MSELoss()
 optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 beta = 0.01
 
+
+
 for epoch in range(epochs):
     model.train()
     total_loss = 0
@@ -147,7 +149,7 @@ for epoch in range(epochs):
         loss_physics = loss_physics_S + loss_physics_I
 
         # Combine the total losses
-        lambda_physics = 1
+        lambda_physics = 0
         loss = loss_data + lambda_physics*loss_physics_I 
         # Only using dI/dt since S has too many changes occuring unrelated to the model like birth.
         # Currently only using dS/dt for tracking purposes so it can be removed.
@@ -157,7 +159,8 @@ for epoch in range(epochs):
         total_loss += loss.item() * batch_X.size(0)
 
     avg_loss = total_loss / len(train_loader.dataset)
-    print(f"Epoch [{epoch+1}/{epochs}], Loss: {avg_loss:.6f}")
+    if epoch % 100 == 0:
+        print(f"Epoch [{epoch+1}/{epochs}], Loss: {avg_loss:.6f}")
 
 # ==== EVALUATE ====
 model.eval()

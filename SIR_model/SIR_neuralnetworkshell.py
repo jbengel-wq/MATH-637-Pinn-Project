@@ -25,7 +25,8 @@ from sklearn.preprocessing import StandardScaler
 # ==== LOAD DATA ====
 
 # Read the csv file
-data = pd.read_csv('../data/cleaned_global.csv')
+n = 562
+data = pd.read_csv('../data/cleaned_global.csv',nrows=n)
 
 # Convert to NumPy array
 array = data.to_numpy()
@@ -33,9 +34,9 @@ array = data.to_numpy()
 
 # Define test Data
 X = array[:,1].astype(np.float32)
-S = array[:,6].astype(np.float32)*7744776836
-I = array[:,3].astype(np.float32)
-R = array[:,4].astype(np.float32)
+S = array[:,9].astype(np.float32) *7744776836
+I = array[:,10].astype(np.float32)*7744776836
+R = array[:,11].astype(np.float32)*7744776836
 
 
 y_s_true = np.array(S, dtype=np.float32)
@@ -115,66 +116,66 @@ beta = 0.01
 gamma = 0.13
 
 
-for epoch in range(epochs):
-    model.train()
-    total_loss = 0
-    for batch_X, batch_y in train_loader:
-        batch_X, batch_y = batch_X.to(device), batch_y.to(device)
+for lambda_physics in [0.0, 0.0000001, 0.000001, 0.00001, 0.0001, 0.001, 0.01, 0.1, 0.2, 0.3, 0.4, 0.5,0.6,0.7,0.8,0.9,1]:
+    for epoch in range(epochs):
+        model.train()
+        total_loss = 0
+        for batch_X, batch_y in train_loader:
+            batch_X, batch_y = batch_X.to(device), batch_y.to(device)
 
-        # Ensure input requires gradient for derivative calculation
-        batch_X.requires_grad_(True) # Re-added this critical line
+            # Ensure input requires gradient for derivative calculation
+            batch_X.requires_grad_(True) # Re-added this critical line
 
-        optimizer.zero_grad()
-        outputs = model(batch_X)
-        # Standard data loss for S and I
-        loss_data = criterion_data(outputs, batch_y)
+            optimizer.zero_grad()
+            outputs = model(batch_X)
+            # Standard data loss for S and I
+            loss_data = criterion_data(outputs, batch_y)
 
-        # Save predicted S and I populations
-        S_pred = outputs[:,0:1]
-        I_pred = outputs[:,1:2]
-        R_pred = outputs[:,2:3]
+            # Save predicted S and I populations
+            S_pred = outputs[:,0:1]
+            I_pred = outputs[:,1:2]
+            R_pred = outputs[:,2:3]
 
 
-        # Calculate first derivatives with respect to time (batch_X)
-        dS_dt_pred = grad(S_pred, batch_X, grad_outputs=torch.ones_like(S_pred), create_graph=True, retain_graph=True)[0]
-        dI_dt_pred = grad(I_pred, batch_X, grad_outputs=torch.ones_like(I_pred), create_graph=True, retain_graph=True)[0]
-        dR_dt_pred = grad(R_pred, batch_X, grad_outputs=torch.ones_like(I_pred), create_graph=True, retain_graph=True)[0]
-        # Calculate the physics loss components
-        # Using dS/dt = -beta*S*I/(S+I) and dI/dt = beta*S*I
-        
-        
+            # Calculate first derivatives with respect to time (batch_X)
+            dS_dt_pred = grad(S_pred, batch_X, grad_outputs=torch.ones_like(S_pred), create_graph=True, retain_graph=True)[0]
+            dI_dt_pred = grad(I_pred, batch_X, grad_outputs=torch.ones_like(I_pred), create_graph=True, retain_graph=True)[0]
+            dR_dt_pred = grad(R_pred, batch_X, grad_outputs=torch.ones_like(I_pred), create_graph=True, retain_graph=True)[0]
+            # Calculate the physics loss components
+            # Using dS/dt = -beta*S*I/(S+I) and dI/dt = beta*S*I
+            
+            
 
-        dS_dt = -beta * S_pred * I_pred
-        dI_dt = beta * S_pred * I_pred - gamma * I_pred
-        dR_dt = gamma * I_pred
+            dS_dt = -beta * S_pred * I_pred
+            dI_dt = beta * S_pred * I_pred - gamma * I_pred
+            dR_dt = gamma * I_pred
 
-        # Physics loss for S and I components
-        loss_physics_S = torch.mean((dS_dt_pred - dS_dt) ** 2)
-        loss_physics_I = torch.mean((dI_dt_pred - dI_dt) ** 2)
-        loss_physics_R = torch.mean((dR_dt_pred - dR_dt) ** 2)
+            # Physics loss for S and I components
+            loss_physics_S = torch.mean((dS_dt_pred - dS_dt) ** 2)
+            loss_physics_I = torch.mean((dI_dt_pred - dI_dt) ** 2)
+            loss_physics_R = torch.mean((dR_dt_pred - dR_dt) ** 2)
 
-        # Combine physics losses for both components
-        loss_physics = loss_physics_S + loss_physics_I
+            # Combine physics losses for both components
+            loss_physics = loss_physics_S + loss_physics_I + loss_physics_R
 
-        # Combine the total losses
-        lambda_physics = 0
-        loss = loss_data + lambda_physics*loss_physics_I 
-        # Only using dI/dt since S has too many changes occuring unrelated to the model like birth.
-        # Currently only using dS/dt for tracking purposes so it can be removed.
-        
-        loss.backward()
-        optimizer.step()
-        total_loss += loss.item() * batch_X.size(0)
+            # Combine the total losses
+            loss = (1-lambda_physics)*loss_data + lambda_physics*loss_physics 
+            # Only using dI/dt since S has too many changes occuring unrelated to the model like birth.
+            # Currently only using dS/dt for tracking purposes so it can be removed.
+            
+            loss.backward()
+            optimizer.step()
+            total_loss += loss.item() * batch_X.size(0)
 
-    avg_loss = total_loss / len(train_loader.dataset)
-    if epoch % 100 == 0:
-        print(f"Epoch [{epoch+1}/{epochs}], Loss: {avg_loss:.6f}")
+        avg_loss = total_loss / len(train_loader.dataset)
+        if epoch % 100 == 0:
+            print(f"Epoch [{epoch+1}/{epochs}], Loss: {avg_loss:.6f}")
 
-# ==== EVALUATE ====
-model.eval()
-with torch.no_grad():
-    y_test_pred = model(X_test.to(device)).cpu()
+    # ==== EVALUATE ====
+    model.eval()
+    with torch.no_grad():
+        y_test_pred = model(X_test.to(device)).cpu()
 
-reconstruction_error = torch.mean((y_test - y_test_pred) ** 2).item()
-print(f"Test reconstruction MSE: {reconstruction_error:.6f}")
+    reconstruction_error = torch.mean((y_test - y_test_pred) ** 2).item()
+    print(f"Test reconstruction MSE lambda = {lambda_physics: 1.7f},: {reconstruction_error}")
 

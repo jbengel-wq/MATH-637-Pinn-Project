@@ -25,17 +25,20 @@ from sklearn.preprocessing import StandardScaler
 # ==== LOAD DATA ====
 
 # Read the csv file
-data = pd.read_csv('data/SI_raw_cleaned.csv')
-
+#data = pd.read_csv('data/SI_raw_cleaned.csv')
+n = 562
+data = pd.read_csv('data/cleaned_global.csv', nrows=n)
 # Convert to NumPy array
 array = data.to_numpy()
 
 
 # Define test Data
-X = array[:,0].astype(np.float32)
-S = array[:,2].astype(np.float32)
-I = array[:,5].astype(np.float32)
-
+#X = array[:,0].astype(np.float32)
+#S = array[:,2].astype(np.float32)
+#I = array[:,5].astype(np.float32)
+X = array[:,1].astype(np.float32)
+S = array[:,3].astype(np.float32)
+I = array[:,4].astype(np.float32)
 
 y_s_true = np.array(S, dtype=np.float32)
 y_i_true = np.array(I, dtype=np.float32)

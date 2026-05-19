@@ -124,7 +124,7 @@ for epoch in range(epochs):
         batch_X, batch_y = batch_X.to(device), batch_y.to(device)
 
         # Ensure input requires gradient for derivative calculation
-        batch_X.requires_grad_(True) # Re-added this critical line
+        batch_X.requires_grad_(True)
 
         optimizer.zero_grad()
         outputs = model(batch_X)
